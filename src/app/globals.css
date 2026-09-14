@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --background: #14171a;
+  --surface: #1c2024;
+  --surface-2: #22262b;
+  --foreground: #edede8;
+  --foreground-muted: #a3a9ad;
+  --border: #2c3136;
+  --accent: #d4af6a;
+  --accent-soft: #d4af6a33;
+  --danger: #c4362a;
+
+  --val-10: #d4af6a;
+  --val-9: #8fae6e;
+  --val-8: #6e93ae;
+  --val-7: #b0895a;
+  --val-0: #c4362a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+
+  --color-val-10: var(--val-10);
+  --color-val-9: var(--val-9);
+  --color-val-8: var(--val-8);
+  --color-val-7: var(--val-7);
+  --color-val-0: var(--val-0);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) sepia(1) saturate(3) hue-rotate(0deg);
+}
