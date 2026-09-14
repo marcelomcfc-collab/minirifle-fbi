@@ -56,6 +56,7 @@ export default function ValueDistributionChart({ stats }: Props) {
               "Cantidad",
             ]}
             labelStyle={{ color: "#a3a9ad" }}
+            itemStyle={{ color: "#edede8" }}
           />
           <Bar dataKey="cantidad" radius={[4, 4, 0, 0]}>
             {data.map((d, i) => (

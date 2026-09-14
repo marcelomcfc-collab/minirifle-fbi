@@ -54,6 +54,7 @@ export default function RoundBarChart({ stats }: Props) {
               color: "#edede8",
             }}
             labelStyle={{ color: "#a3a9ad" }}
+            itemStyle={{ color: "#edede8" }}
           />
           <ReferenceLine
             y={avg}

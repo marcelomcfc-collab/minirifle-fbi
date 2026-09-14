@@ -44,6 +44,7 @@ export function ScoreEvolutionChart({ data }: { data: EvolutionPoint[] }) {
               color: "#edede8",
             }}
             labelStyle={{ color: "#a3a9ad" }}
+            itemStyle={{ color: "#edede8" }}
           />
           <Line
             type="monotone"
@@ -87,6 +88,7 @@ export function PctDiecesEvolutionChart({ data }: { data: EvolutionPoint[] }) {
               color: "#edede8",
             }}
             labelStyle={{ color: "#a3a9ad" }}
+            itemStyle={{ color: "#edede8" }}
             formatter={(value) => [`${Number(value).toFixed(1)}%`, "10s"]}
           />
           <Line
