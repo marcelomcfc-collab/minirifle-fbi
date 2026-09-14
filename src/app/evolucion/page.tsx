@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase, SESSIONS_TABLE } from "@/lib/supabaseClient";
-import { SessionRecord } from "@/lib/types";
+import { LocalSessionRecord } from "@/lib/types";
+import { getMergedSessions } from "@/lib/syncQueue";
 import { calcSessionStats, calcTrend } from "@/lib/stats";
 import { ScoreEvolutionChart, PctDiecesEvolutionChart } from "@/components/EvolutionCharts";
 
@@ -25,23 +25,23 @@ const TREND_COLOR: Record<string, string> = {
 };
 
 export default function EvolucionPage() {
-  const [sessions, setSessions] = useState<SessionRecord[] | null>(null);
+  const [sessions, setSessions] = useState<LocalSessionRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase
-      .from(SESSIONS_TABLE)
-      .select("*")
-      .order("fecha", { ascending: true })
-      .order("created_at", { ascending: true })
-      .then(({ data, error }) => {
-        if (error) {
-          setError("No se pudo cargar la evolución. Revisá tu conexión.");
-          setSessions([]);
-          return;
-        }
-        setSessions((data ?? []) as SessionRecord[]);
-      });
+    const fetchSessions = async () => {
+      const { sessions: merged, offline } = await getMergedSessions();
+      setSessions(merged);
+      if (offline && merged.length === 0) {
+        setError("No se pudo cargar la evolución. Revisá tu conexión.");
+      } else {
+        setError(null);
+      }
+    };
+    fetchSessions();
+    const onChanged = () => fetchSessions();
+    window.addEventListener("minirifle-sync-changed", onChanged);
+    return () => window.removeEventListener("minirifle-sync-changed", onChanged);
   }, []);
 
   const rows = useMemo(() => {
@@ -141,8 +141,15 @@ export default function EvolucionPage() {
             </thead>
             <tbody>
               {[...rows].reverse().map((r) => (
-                <tr key={r.session.id} className="border-t border-border">
-                  <td className="py-2 pr-2 text-foreground">{formatFechaCorta(r.session.fecha)}</td>
+                <tr key={r.session.localId} className="border-t border-border">
+                  <td className="py-2 pr-2 text-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      {formatFechaCorta(r.session.fecha)}
+                      {r.session.status === "pending" && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-accent" title="Sin sincronizar" />
+                      )}
+                    </span>
+                  </td>
                   <td className="py-2 pr-2 font-semibold text-accent">{r.stats.resultado}</td>
                   <td className="py-2 pr-2 text-val-9">
                     R{r.stats.bestRound.index + 1} · {r.stats.bestRound.score}

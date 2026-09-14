@@ -20,3 +20,10 @@ create policy "anon full access" on public.sesiones
   to anon
   using (true)
   with check (true);
+
+-- Migración para soporte offline-first (carga sin conexión + sync en background).
+-- local_id identifica la sesión generada en el dispositivo (crypto.randomUUID())
+-- y permite hacer upsert idempotente: si un reintento de sync se repite,
+-- no se duplica la fila. Las filas antiguas quedan con local_id null,
+-- lo cual es válido porque una columna unique permite múltiples NULL.
+alter table public.sesiones add column if not exists local_id uuid unique;

@@ -20,6 +20,20 @@ export type SessionRecord = {
   created_at: string;
 };
 
+export type SyncStatus = "pending" | "synced";
+
+// Registro en el caché local (IndexedDB). Une sesiones creadas offline
+// (sin remoteId todavía) con el espejo local de sesiones ya sincronizadas
+// desde Supabase, para que historial/evolución funcionen sin conexión.
+export type LocalSessionRecord = {
+  localId: string;
+  remoteId: string | null;
+  fecha: string;
+  disparos: ShotValue[][];
+  created_at: string;
+  status: SyncStatus;
+};
+
 export function emptyDisparos(): Shot[][] {
   return Array.from({ length: ROUNDS }, () => Array<Shot>(SHOTS_PER_ROUND).fill(null));
 }

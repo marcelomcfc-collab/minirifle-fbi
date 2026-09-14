@@ -3,24 +3,19 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase, SESSIONS_TABLE } from "@/lib/supabaseClient";
-import { SessionRecord } from "@/lib/types";
+import { LocalSessionRecord } from "@/lib/types";
+import { getSessionById } from "@/lib/syncQueue";
 import SessionResults from "@/components/SessionResults";
 
 export default function SessionDetailPage() {
   const params = useParams<{ id: string }>();
-  const [session, setSession] = useState<SessionRecord | null | undefined>(undefined);
+  const [session, setSession] = useState<LocalSessionRecord | null | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
-    supabase
-      .from(SESSIONS_TABLE)
-      .select("*")
-      .eq("id", params.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (active) setSession((data as SessionRecord) ?? null);
-      });
+    getSessionById(params.id).then((record) => {
+      if (active) setSession(record);
+    });
     return () => {
       active = false;
     };
@@ -45,7 +40,9 @@ export default function SessionDetailPage() {
         </p>
       )}
 
-      {session && <SessionResults fecha={session.fecha} disparos={session.disparos} />}
+      {session && (
+        <SessionResults fecha={session.fecha} disparos={session.disparos} syncStatus={session.status} />
+      )}
     </div>
   );
 }

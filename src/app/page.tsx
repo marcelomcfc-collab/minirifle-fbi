@@ -6,8 +6,9 @@ import ShotPicker from "@/components/ShotPicker";
 import ConfirmModal from "@/components/ConfirmModal";
 import SessionResults from "@/components/SessionResults";
 import { loadDraft, saveDraft, clearDraft } from "@/lib/storage";
-import { emptyDisparos, ROUNDS, SHOTS_PER_ROUND, SessionDraft, Shot, ShotValue, TOTAL_SHOTS, todayISO } from "@/lib/types";
-import { supabase, SESSIONS_TABLE } from "@/lib/supabaseClient";
+import { emptyDisparos, ROUNDS, SHOTS_PER_ROUND, SessionDraft, Shot, ShotValue, SyncStatus, TOTAL_SHOTS, todayISO } from "@/lib/types";
+import { saveSessionLocally, trySyncOne } from "@/lib/syncQueue";
+import { getLocalSessionByLocalId } from "@/lib/db";
 
 type ActiveShot = { round: number; shot: number } | null;
 
@@ -27,8 +28,11 @@ export default function HomePage() {
   const [activeShot, setActiveShot] = useState<ActiveShot>(null);
   const [showReset, setShowReset] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submittedSession, setSubmittedSession] = useState<{ fecha: string; disparos: ShotValue[][] } | null>(null);
+  const [submittedSession, setSubmittedSession] = useState<{
+    fecha: string;
+    disparos: ShotValue[][];
+    syncStatus: SyncStatus;
+  } | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- must run client-only, after hydration, to avoid mismatching the localStorage-derived draft with SSR output
@@ -54,6 +58,7 @@ export default function HomePage() {
         <SessionResults
           fecha={submittedSession.fecha}
           disparos={submittedSession.disparos}
+          syncStatus={submittedSession.syncStatus}
           actions={
             <button
               onClick={() => {
@@ -87,36 +92,25 @@ export default function HomePage() {
     const fresh = { ...draft, disparos: emptyDisparos() };
     setDraft(fresh);
     setShowReset(false);
-    setSubmitError(null);
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    setSubmitError(null);
     const disparosFinal = draft.disparos as ShotValue[][];
 
-    let error: { message: string } | null = null;
-    try {
-      const result = await supabase
-        .from(SESSIONS_TABLE)
-        .insert({ fecha: draft.fecha, disparos: disparosFinal });
-      error = result.error;
-      if (error) console.error("Supabase insert error:", JSON.stringify(error));
-    } catch (e) {
-      error = { message: String(e) };
-      console.error("Supabase insert threw:", e);
-    }
+    // Se guarda en IndexedDB primero: el dato ya está a salvo aunque no
+    // haya conexión. Después se intenta sincronizar con Supabase; si falla
+    // queda "pendiente" y el sync automático la subirá más tarde.
+    const record = await saveSessionLocally(draft.fecha, disparosFinal);
+    await trySyncOne(record);
+    const finalRecord = (await getLocalSessionByLocalId(record.localId)) ?? record;
 
     setSubmitting(false);
-
-    if (error) {
-      setSubmitError(
-        "No se pudo guardar en la nube (¿sin conexión?). Tus disparos siguen guardados localmente, podés reintentar."
-      );
-      return;
-    }
-
-    setSubmittedSession({ fecha: draft.fecha, disparos: disparosFinal });
+    setSubmittedSession({
+      fecha: finalRecord.fecha,
+      disparos: finalRecord.disparos,
+      syncStatus: finalRecord.status,
+    });
     clearDraft();
   };
 
@@ -148,12 +142,6 @@ export default function HomePage() {
       </div>
 
       <ShotGrid disparos={draft.disparos} onOpenShot={(round, shot) => setActiveShot({ round, shot })} />
-
-      {submitError && (
-        <p className="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-val-0">
-          {submitError}
-        </p>
-      )}
 
       <div className="flex gap-2.5 pb-2">
         <button

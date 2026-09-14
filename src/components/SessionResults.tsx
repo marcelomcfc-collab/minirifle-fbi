@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ShotValue, SHOT_VALUES } from "@/lib/types";
+import { ShotValue, SHOT_VALUES, SyncStatus } from "@/lib/types";
 import { calcSessionStats } from "@/lib/stats";
 import { VALUE_TEXT_CLASS, valueLabel } from "@/lib/valueStyle";
 import RoundBarChart from "./RoundBarChart";
@@ -12,6 +12,7 @@ type Props = {
   fecha: string;
   disparos: ShotValue[][];
   actions?: React.ReactNode;
+  syncStatus?: SyncStatus;
 };
 
 function formatFecha(fecha: string): string {
@@ -30,7 +31,7 @@ function mitadesMensaje(diff: number): string {
   return "Se mantuvo estable entre la primera y la segunda mitad.";
 }
 
-export default function SessionResults({ fecha, disparos, actions }: Props) {
+export default function SessionResults({ fecha, disparos, actions, syncStatus }: Props) {
   const stats = calcSessionStats(disparos);
   const contentRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
@@ -55,6 +56,16 @@ export default function SessionResults({ fecha, disparos, actions }: Props) {
           <p className="text-xs uppercase tracking-wide text-foreground-muted">
             {formatFecha(fecha)}
           </p>
+          {syncStatus === "pending" && (
+            <p className="mt-2 inline-block rounded-full border border-accent/40 bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-accent">
+              ⏳ Pendiente de sincronizar
+            </p>
+          )}
+          {syncStatus === "synced" && (
+            <p className="mt-2 inline-block rounded-full border border-val-9/40 bg-val-9/10 px-2.5 py-1 text-[11px] font-medium text-val-9">
+              ✓ Sincronizado
+            </p>
+          )}
           <p className="mt-2 text-4xl font-extrabold text-accent">{stats.resultado}</p>
           <p className="mt-1 text-sm text-foreground-muted">
             {stats.puntajeTotal} / {stats.sobre} puntos · {stats.impactos}/{stats.totalShots} impactos
