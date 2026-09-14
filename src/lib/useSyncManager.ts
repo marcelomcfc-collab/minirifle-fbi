@@ -9,10 +9,21 @@ import { getPendingCount, syncPendingSessions } from "./syncQueue";
 export function useSyncManager() {
   const [pendingCount, setPendingCount] = useState(0);
   const [online, setOnline] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   const refreshCount = useCallback(async () => {
     setPendingCount(await getPendingCount());
   }, []);
+
+  const syncNow = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await syncPendingSessions({ force: true });
+      await refreshCount();
+    } finally {
+      setSyncing(false);
+    }
+  }, [refreshCount]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- navigator.onLine is only known client-side, after hydration
@@ -54,5 +65,5 @@ export function useSyncManager() {
     };
   }, [refreshCount]);
 
-  return { pendingCount, online };
+  return { pendingCount, online, syncing, syncNow };
 }

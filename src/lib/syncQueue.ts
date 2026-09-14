@@ -64,9 +64,12 @@ export async function trySyncOne(record: LocalSessionRecord): Promise<boolean> {
 
 let syncing = false;
 
-export async function syncPendingSessions(): Promise<void> {
+// `force` salta el chequeo de navigator.onLine: en iOS/Safari ese valor puede
+// quedar desactualizado justo después de reconectar, así que el botón manual
+// "Sincronizar ahora" lo ignora y deja que el propio fetch confirme si hay red.
+export async function syncPendingSessions({ force = false }: { force?: boolean } = {}): Promise<void> {
   if (syncing) return;
-  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (!force && typeof navigator !== "undefined" && !navigator.onLine) return;
   syncing = true;
   try {
     const all = await getAllLocalSessions();
