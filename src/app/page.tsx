@@ -94,9 +94,18 @@ export default function HomePage() {
     setSubmitting(true);
     setSubmitError(null);
     const disparosFinal = draft.disparos as ShotValue[][];
-    const { error } = await supabase
-      .from(SESSIONS_TABLE)
-      .insert({ fecha: draft.fecha, disparos: disparosFinal });
+
+    let error: { message: string } | null = null;
+    try {
+      const result = await supabase
+        .from(SESSIONS_TABLE)
+        .insert({ fecha: draft.fecha, disparos: disparosFinal });
+      error = result.error;
+      if (error) console.error("Supabase insert error:", JSON.stringify(error));
+    } catch (e) {
+      error = { message: String(e) };
+      console.error("Supabase insert threw:", e);
+    }
 
     setSubmitting(false);
 
