@@ -7,7 +7,7 @@ import { VALUE_TEXT_CLASS, valueLabel } from "@/lib/valueStyle";
 import RoundBarChart from "./RoundBarChart";
 import ValueDistributionChart from "./ValueDistributionChart";
 import ShotGrid from "./ShotGrid";
-import { exportElementToPdf } from "@/lib/pdfExport";
+import { exportSectionsToPdf } from "@/lib/pdfExport";
 
 type Props = {
   fecha: string;
@@ -35,17 +35,21 @@ function mitadesMensaje(diff: number): string {
 
 export default function SessionResults({ fecha, disparos, moscas, actions, syncStatus }: Props) {
   const stats = calcSessionStats(disparos, moscas);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const page1Ref = useRef<HTMLDivElement>(null);
+  const page2Ref = useRef<HTMLDivElement>(null);
+  const page3Ref = useRef<HTMLDivElement>(null);
+  const page4Ref = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
   const handleExport = async () => {
-    if (!contentRef.current) return;
+    const pages = [page1Ref.current, page2Ref.current, page3Ref.current, page4Ref.current];
+    if (pages.some((p) => !p)) return;
     setExporting(true);
     setExportError(null);
     try {
-      await exportElementToPdf(
-        contentRef.current,
+      await exportSectionsToPdf(
+        pages as HTMLElement[],
         `minirifle-fbi_${fecha}_${stats.resultado}.pdf`
       );
     } catch (e) {
@@ -58,7 +62,10 @@ export default function SessionResults({ fecha, disparos, moscas, actions, syncS
 
   return (
     <div className="flex flex-col gap-4 pb-4">
-      <div ref={contentRef} className="flex flex-col gap-4 bg-background p-0.5">
+      {/* Cada div ref="pageNRef" es una página completa del PDF (ver
+          exportSectionsToPdf): agrupa las secciones que tienen que quedar
+          juntas y enteras, sin cortarse entre dos páginas. */}
+      <div ref={page1Ref} className="flex flex-col gap-4 bg-background p-0.5">
         <div className="rounded-2xl border border-border bg-surface p-5 text-center">
           <p className="text-xs uppercase tracking-wide text-foreground-muted">
             {formatFecha(fecha)}
@@ -88,7 +95,9 @@ export default function SessionResults({ fecha, disparos, moscas, actions, syncS
           <h3 className="mb-2 text-sm font-semibold text-foreground">Puntaje por ronda</h3>
           <RoundBarChart stats={stats} />
         </div>
+      </div>
 
+      <div ref={page2Ref} className="flex flex-col gap-4 bg-background p-0.5">
         <div className="rounded-2xl border border-border bg-surface p-4">
           <h3 className="mb-2 text-sm font-semibold text-foreground">Distribución de valores</h3>
           <ValueDistributionChart stats={stats} />
@@ -103,7 +112,9 @@ export default function SessionResults({ fecha, disparos, moscas, actions, syncS
             ))}
           </div>
         </div>
+      </div>
 
+      <div ref={page3Ref} className="flex flex-col gap-4 bg-background p-0.5">
         <div className="rounded-2xl border border-border bg-surface p-4">
           <h3 className="mb-3 text-sm font-semibold text-foreground">Estadísticas</h3>
           <div className="grid grid-cols-2 gap-y-3 gap-x-3 text-sm">
@@ -147,7 +158,9 @@ export default function SessionResults({ fecha, disparos, moscas, actions, syncS
             {mitadesMensaje(stats.diferenciaMitades)}
           </p>
         </div>
+      </div>
 
+      <div ref={page4Ref} className="flex flex-col gap-4 bg-background p-0.5">
         <div className="rounded-2xl border border-border bg-surface p-4">
           <h3 className="mb-3 text-sm font-semibold text-foreground">Detalle de disparos</h3>
           <ShotGrid disparos={disparos} moscas={moscas} />
