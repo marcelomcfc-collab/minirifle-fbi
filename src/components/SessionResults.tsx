@@ -6,6 +6,7 @@ import { calcSessionStats } from "@/lib/stats";
 import { VALUE_TEXT_CLASS, valueLabel } from "@/lib/valueStyle";
 import RoundBarChart from "./RoundBarChart";
 import ValueDistributionChart from "./ValueDistributionChart";
+import ShotGrid from "./ShotGrid";
 import { exportElementToPdf } from "@/lib/pdfExport";
 
 type Props = {
@@ -145,6 +146,11 @@ export default function SessionResults({ fecha, disparos, moscas, actions, syncS
           <p className="mt-2 text-xs text-foreground-muted">
             {mitadesMensaje(stats.diferenciaMitades)}
           </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-surface p-4">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Detalle de disparos</h3>
+          <ShotGrid disparos={disparos} moscas={moscas} />
         </div>
       </div>
 
