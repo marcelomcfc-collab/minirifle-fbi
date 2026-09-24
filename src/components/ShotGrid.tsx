@@ -1,15 +1,16 @@
 "use client";
 
-import { Shot } from "@/lib/types";
+import { MoscaGrid, Shot } from "@/lib/types";
 import { calcRoundScore, calcRoundZeros } from "@/lib/stats";
 import { VALUE_BG_CLASS, valueLabel } from "@/lib/valueStyle";
 
 type Props = {
   disparos: Shot[][];
+  moscas: MoscaGrid;
   onOpenShot: (round: number, shot: number) => void;
 };
 
-export default function ShotGrid({ disparos, onOpenShot }: Props) {
+export default function ShotGrid({ disparos, moscas, onOpenShot }: Props) {
   return (
     <div className="flex flex-col gap-2">
       {disparos.map((round, rIdx) => {
@@ -27,19 +28,22 @@ export default function ShotGrid({ disparos, onOpenShot }: Props) {
               R{rIdx + 1}
             </div>
             <div className="grid flex-1 grid-cols-5 gap-1.5">
-              {round.map((shot, sIdx) => (
-                <button
-                  key={sIdx}
-                  onClick={() => onOpenShot(rIdx, sIdx)}
-                  className={`flex aspect-square items-center justify-center rounded-lg text-sm font-bold transition-transform active:scale-95 ${
-                    shot === null
-                      ? "border border-dashed border-border bg-surface-2 text-foreground-muted"
-                      : `${VALUE_BG_CLASS[shot]} text-[#14171A]`
-                  }`}
-                >
-                  {shot === null ? "" : valueLabel(shot)}
-                </button>
-              ))}
+              {round.map((shot, sIdx) => {
+                const isX = shot === 10 && !!moscas[rIdx]?.[sIdx];
+                return (
+                  <button
+                    key={sIdx}
+                    onClick={() => onOpenShot(rIdx, sIdx)}
+                    className={`flex aspect-square items-center justify-center rounded-lg text-sm font-bold transition-transform active:scale-95 ${
+                      shot === null
+                        ? "border border-dashed border-border bg-surface-2 text-foreground-muted"
+                        : `${VALUE_BG_CLASS[shot]} text-[#14171A]`
+                    }`}
+                  >
+                    {shot === null ? "" : isX ? "X" : valueLabel(shot)}
+                  </button>
+                );
+              })}
             </div>
             <div className="w-11 shrink-0 text-right">
               <div className="text-sm font-bold text-foreground">

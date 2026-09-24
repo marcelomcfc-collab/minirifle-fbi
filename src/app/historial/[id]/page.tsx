@@ -41,7 +41,12 @@ export default function SessionDetailPage() {
       )}
 
       {session && (
-        <SessionResults fecha={session.fecha} disparos={session.disparos} syncStatus={session.status} />
+        <SessionResults
+          fecha={session.fecha}
+          disparos={session.disparos}
+          moscas={session.moscas}
+          syncStatus={session.status}
+        />
       )}
     </div>
   );

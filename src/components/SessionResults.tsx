@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ShotValue, SHOT_VALUES, SyncStatus } from "@/lib/types";
+import { MoscaGrid, ShotValue, SHOT_VALUES, SyncStatus } from "@/lib/types";
 import { calcSessionStats } from "@/lib/stats";
 import { VALUE_TEXT_CLASS, valueLabel } from "@/lib/valueStyle";
 import RoundBarChart from "./RoundBarChart";
@@ -11,6 +11,7 @@ import { exportElementToPdf } from "@/lib/pdfExport";
 type Props = {
   fecha: string;
   disparos: ShotValue[][];
+  moscas?: MoscaGrid | null;
   actions?: React.ReactNode;
   syncStatus?: SyncStatus;
 };
@@ -31,8 +32,8 @@ function mitadesMensaje(diff: number): string {
   return "Se mantuvo estable entre la primera y la segunda mitad.";
 }
 
-export default function SessionResults({ fecha, disparos, actions, syncStatus }: Props) {
-  const stats = calcSessionStats(disparos);
+export default function SessionResults({ fecha, disparos, moscas, actions, syncStatus }: Props) {
+  const stats = calcSessionStats(disparos, moscas);
   const contentRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -113,6 +114,7 @@ export default function SessionResults({ fecha, disparos, actions, syncStatus }:
                   : "Sin ceros"
               }
             />
+            <Stat label="Moscas (X)" value={`${stats.moscasCount}`} />
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { ROUNDS, SHOT_VALUES, SHOTS_PER_ROUND, ShotValue } from "./types";
+import { MoscaGrid, ROUNDS, SHOT_VALUES, SHOTS_PER_ROUND, ShotValue } from "./types";
 
 export type RoundStat = {
   index: number; // 0-based
@@ -28,6 +28,7 @@ export type SessionStats = {
   segundaMitadAvg: number;
   diferenciaMitades: number;
   rondaConMasCeros: { index: number; zeros: number } | null;
+  moscasCount: number;
 };
 
 export function calcRoundScore(round: ShotValue[]): number {
@@ -38,7 +39,10 @@ export function calcRoundZeros(round: ShotValue[]): number {
   return round.filter((v) => v === 0).length;
 }
 
-export function calcSessionStats(disparos: ShotValue[][]): SessionStats {
+export function calcSessionStats(
+  disparos: ShotValue[][],
+  moscas?: MoscaGrid | null
+): SessionStats {
   const flat = disparos.flat();
   const totalShots = flat.length;
 
@@ -112,6 +116,10 @@ export function calcSessionStats(disparos: ShotValue[][]): SessionStats {
         })()
       : null;
 
+  const moscasCount = moscas
+    ? moscas.reduce((sum, round) => sum + round.filter(Boolean).length, 0)
+    : 0;
+
   return {
     totalShots,
     impactos,
@@ -132,6 +140,7 @@ export function calcSessionStats(disparos: ShotValue[][]): SessionStats {
     segundaMitadAvg,
     diferenciaMitades: segundaMitadAvg - primeraMitadAvg,
     rondaConMasCeros,
+    moscasCount,
   };
 }
 

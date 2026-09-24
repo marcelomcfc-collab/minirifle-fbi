@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LocalSessionRecord } from "@/lib/types";
 import { calcSessionStats } from "@/lib/stats";
-import { deleteSessions, getMergedSessions } from "@/lib/syncQueue";
+import { deleteSessionsQueued, getMergedSessions } from "@/lib/syncQueue";
 import ConfirmModal from "@/components/ConfirmModal";
 
 function formatFecha(fecha: string): string {
@@ -62,13 +62,14 @@ export default function HistorialPage() {
     if (!sessions) return;
     setBusy(true);
     const targets = sessions.filter((s) => selected.has(s.localId));
-    const { error } = await deleteSessions(targets);
+    const { error } = await deleteSessionsQueued(targets);
     setBusy(false);
     setConfirmDeleteSelected(false);
     if (error) {
-      setError("No se pudieron borrar las sesiones seleccionadas.");
-      return;
+      setError("No se pudieron borrar algunas sesiones seleccionadas. Probá de nuevo.");
     }
+    // Sin conexión el borrado queda encolado (no es un error): la sesión
+    // igual desaparece de la vista y se sincroniza apenas vuelva la señal.
     exitSelectionMode();
     fetchSessions();
   };
@@ -79,12 +80,11 @@ export default function HistorialPage() {
       return;
     }
     setBusy(true);
-    const { error } = await deleteSessions(sessions);
+    const { error } = await deleteSessionsQueued(sessions);
     setBusy(false);
     setConfirmDeleteAll(false);
     if (error) {
-      setError("No se pudo borrar el historial.");
-      return;
+      setError("No se pudo borrar todo el historial. Probá de nuevo.");
     }
     exitSelectionMode();
     fetchSessions();

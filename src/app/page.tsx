@@ -6,7 +6,7 @@ import ShotPicker from "@/components/ShotPicker";
 import ConfirmModal from "@/components/ConfirmModal";
 import SessionResults from "@/components/SessionResults";
 import { loadDraft, saveDraft, clearDraft } from "@/lib/storage";
-import { emptyDisparos, ROUNDS, SHOTS_PER_ROUND, SessionDraft, Shot, ShotValue, SyncStatus, TOTAL_SHOTS, todayISO } from "@/lib/types";
+import { emptyDisparos, emptyMoscas, MoscaGrid, ROUNDS, SHOTS_PER_ROUND, SessionDraft, Shot, ShotValue, SyncStatus, TOTAL_SHOTS, todayISO } from "@/lib/types";
 import { saveSessionLocally, trySyncOne } from "@/lib/syncQueue";
 import { getLocalSessionByLocalId } from "@/lib/db";
 
@@ -31,6 +31,7 @@ export default function HomePage() {
   const [submittedSession, setSubmittedSession] = useState<{
     fecha: string;
     disparos: ShotValue[][];
+    moscas: MoscaGrid;
     syncStatus: SyncStatus;
   } | null>(null);
 
@@ -58,11 +59,12 @@ export default function HomePage() {
         <SessionResults
           fecha={submittedSession.fecha}
           disparos={submittedSession.disparos}
+          moscas={submittedSession.moscas}
           syncStatus={submittedSession.syncStatus}
           actions={
             <button
               onClick={() => {
-                const fresh = { fecha: todayISO(), disparos: emptyDisparos() };
+                const fresh = { fecha: todayISO(), disparos: emptyDisparos(), moscas: emptyMoscas() };
                 setDraft(fresh);
                 saveDraft(fresh);
                 setSubmittedSession(null);
@@ -77,11 +79,13 @@ export default function HomePage() {
     );
   }
 
-  const handleSelectValue = (value: ShotValue) => {
+  const handleSelectValue = (value: ShotValue, isX: boolean) => {
     if (!activeShot) return;
     const next = draft.disparos.map((round) => [...round]);
     next[activeShot.round][activeShot.shot] = value;
-    const updatedDraft = { ...draft, disparos: next };
+    const nextMoscas = draft.moscas.map((round) => [...round]);
+    nextMoscas[activeShot.round][activeShot.shot] = isX;
+    const updatedDraft = { ...draft, disparos: next, moscas: nextMoscas };
     setDraft(updatedDraft);
 
     const flatIndex = activeShot.round * SHOTS_PER_ROUND + activeShot.shot;
@@ -89,7 +93,7 @@ export default function HomePage() {
   };
 
   const handleReset = () => {
-    const fresh = { ...draft, disparos: emptyDisparos() };
+    const fresh = { ...draft, disparos: emptyDisparos(), moscas: emptyMoscas() };
     setDraft(fresh);
     setShowReset(false);
   };
@@ -97,11 +101,12 @@ export default function HomePage() {
   const handleSubmit = async () => {
     setSubmitting(true);
     const disparosFinal = draft.disparos as ShotValue[][];
+    const moscasFinal = draft.moscas;
 
     // Se guarda en IndexedDB primero: el dato ya está a salvo aunque no
     // haya conexión. Después se intenta sincronizar con Supabase; si falla
     // queda "pendiente" y el sync automático la subirá más tarde.
-    const record = await saveSessionLocally(draft.fecha, disparosFinal);
+    const record = await saveSessionLocally(draft.fecha, disparosFinal, moscasFinal);
     await trySyncOne(record);
     const finalRecord = (await getLocalSessionByLocalId(record.localId)) ?? record;
 
@@ -109,6 +114,7 @@ export default function HomePage() {
     setSubmittedSession({
       fecha: finalRecord.fecha,
       disparos: finalRecord.disparos,
+      moscas: finalRecord.moscas ?? emptyMoscas(),
       syncStatus: finalRecord.status,
     });
     clearDraft();
@@ -141,7 +147,11 @@ export default function HomePage() {
         </div>
       </div>
 
-      <ShotGrid disparos={draft.disparos} onOpenShot={(round, shot) => setActiveShot({ round, shot })} />
+      <ShotGrid
+        disparos={draft.disparos}
+        moscas={draft.moscas}
+        onOpenShot={(round, shot) => setActiveShot({ round, shot })}
+      />
 
       <div className="flex gap-2.5 pb-2">
         <button
@@ -164,6 +174,7 @@ export default function HomePage() {
           round={activeShot.round}
           shot={activeShot.shot}
           currentValue={draft.disparos[activeShot.round][activeShot.shot]}
+          currentIsX={draft.moscas[activeShot.round][activeShot.shot]}
           onSelect={handleSelectValue}
           onClose={() => setActiveShot(null)}
         />

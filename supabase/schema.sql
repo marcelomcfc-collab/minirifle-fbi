@@ -27,3 +27,8 @@ create policy "anon full access" on public.sesiones
 -- no se duplica la fila. Las filas antiguas quedan con local_id null,
 -- lo cual es válido porque una columna unique permite múltiples NULL.
 alter table public.sesiones add column if not exists local_id uuid unique;
+
+-- Migración para la mosca (X): grilla booleana 8x5 paralela a `disparos`,
+-- true donde ese disparo (que vale 10) se cargó como mosca/centro interno.
+-- Las filas antiguas quedan con moscas null (0 moscas a los fines del conteo).
+alter table public.sesiones add column if not exists moscas jsonb;

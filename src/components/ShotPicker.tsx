@@ -7,11 +7,26 @@ type Props = {
   round: number;
   shot: number;
   currentValue: Shot;
-  onSelect: (value: ShotValue) => void;
+  currentIsX: boolean;
+  onSelect: (value: ShotValue, isX: boolean) => void;
   onClose: () => void;
 };
 
-export default function ShotPicker({ round, shot, currentValue, onSelect, onClose }: Props) {
+type Cell = { key: string; label: string; value: ShotValue; isX: boolean };
+
+const CELLS: Cell[] = [
+  ...SHOT_VALUES.map((v) => ({ key: String(v), label: valueLabel(v), value: v, isX: false })),
+  { key: "X", label: "X", value: 10, isX: true },
+];
+
+export default function ShotPicker({
+  round,
+  shot,
+  currentValue,
+  currentIsX,
+  onSelect,
+  onClose,
+}: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
@@ -44,21 +59,27 @@ export default function ShotPicker({ round, shot, currentValue, onSelect, onClos
           </button>
         </div>
 
-        <div className="grid grid-cols-5 gap-2.5">
-          {SHOT_VALUES.map((v) => (
-            <button
-              key={v}
-              onClick={() => onSelect(v)}
-              className={`${VALUE_BG_CLASS[v]} flex aspect-square flex-col items-center justify-center rounded-xl text-2xl font-bold text-[#14171A] transition-transform active:scale-95 ${
-                currentValue === v ? "ring-4 ring-foreground/70" : ""
-              }`}
-            >
-              {valueLabel(v)}
-            </button>
-          ))}
+        <div className="grid grid-cols-3 gap-2.5">
+          {CELLS.map((cell) => {
+            const active = currentValue === cell.value && currentIsX === cell.isX;
+            return (
+              <button
+                key={cell.key}
+                onClick={() => onSelect(cell.value, cell.isX)}
+                className={`${VALUE_BG_CLASS[cell.value]} flex aspect-square flex-col items-center justify-center rounded-xl text-2xl font-bold text-[#14171A] transition-transform active:scale-95 ${
+                  active ? "ring-4 ring-foreground/70" : ""
+                }`}
+              >
+                {cell.label}
+                {cell.isX && (
+                  <span className="text-[10px] font-semibold normal-case opacity-70">mosca</span>
+                )}
+              </button>
+            );
+          })}
         </div>
         <p className="mt-3 text-center text-[11px] text-foreground-muted">
-          0 = fuera del blanco / no impactó
+          0 = fuera del blanco / no impactó · X = mosca (centro interno, vale 10)
         </p>
       </div>
     </div>

@@ -48,7 +48,7 @@ export default function EvolucionPage() {
     if (!sessions) return [];
     return sessions.map((s) => ({
       session: s,
-      stats: calcSessionStats(s.disparos),
+      stats: calcSessionStats(s.disparos, s.moscas),
     }));
   }, [sessions]);
 

@@ -3,9 +3,10 @@ import {
   deleteLocalSession,
   getAllLocalSessions,
   getLocalSessionByLocalId,
+  getLocalSessionByRemoteId,
   putLocalSession,
 } from "./db";
-import { LocalSessionRecord, SessionRecord, ShotValue } from "./types";
+import { LocalSessionRecord, MoscaGrid, SessionRecord, ShotValue } from "./types";
 
 function notifyChange() {
   if (typeof window !== "undefined") {
@@ -21,13 +22,15 @@ function sortByFechaAsc(a: LocalSessionRecord, b: LocalSessionRecord) {
 // Guarda la sesión en IndexedDB de inmediato, sin depender de la conexión.
 export async function saveSessionLocally(
   fecha: string,
-  disparos: ShotValue[][]
+  disparos: ShotValue[][],
+  moscas: MoscaGrid
 ): Promise<LocalSessionRecord> {
   const record: LocalSessionRecord = {
     localId: crypto.randomUUID(),
     remoteId: null,
     fecha,
     disparos,
+    moscas,
     created_at: new Date().toISOString(),
     status: "pending",
   };
@@ -42,7 +45,12 @@ async function insertToSupabase(record: LocalSessionRecord): Promise<string | nu
     const { data, error } = await supabase
       .from(SESSIONS_TABLE)
       .upsert(
-        { local_id: record.localId, fecha: record.fecha, disparos: record.disparos },
+        {
+          local_id: record.localId,
+          fecha: record.fecha,
+          disparos: record.disparos,
+          moscas: record.moscas,
+        },
         { onConflict: "local_id" }
       )
       .select("id")
@@ -62,6 +70,26 @@ export async function trySyncOne(record: LocalSessionRecord): Promise<boolean> {
   return true;
 }
 
+// Intenta efectivizar en Supabase las sesiones marcadas "pending-delete"
+// (borradas localmente sin conexión). Si se logra, la tumba local se
+// elimina del todo; si sigue sin conexión, se deja tal cual para reintentar.
+async function trySyncOneDelete(record: LocalSessionRecord): Promise<boolean> {
+  if (!record.remoteId) {
+    // No debería pasar (pending-delete siempre viene de una sesión sincronizada),
+    // pero si ocurre, no hay nada remoto que borrar: se limpia el registro local.
+    await deleteLocalSession(record.localId);
+    return true;
+  }
+  try {
+    const { error } = await supabase.from(SESSIONS_TABLE).delete().eq("id", record.remoteId);
+    if (error) return false;
+    await deleteLocalSession(record.localId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 let syncing = false;
 
 // `force` salta el chequeo de navigator.onLine: en iOS/Safari ese valor puede
@@ -73,10 +101,16 @@ export async function syncPendingSessions({ force = false }: { force?: boolean }
   syncing = true;
   try {
     const all = await getAllLocalSessions();
-    const pending = all.filter((s) => s.status === "pending");
-    for (const record of pending) {
+    const pendingCreates = all.filter((s) => s.status === "pending");
+    for (const record of pendingCreates) {
       await trySyncOne(record);
     }
+    const pendingDeletes = all.filter((s) => s.status === "pending-delete");
+    let deletedAny = false;
+    for (const record of pendingDeletes) {
+      if (await trySyncOneDelete(record)) deletedAny = true;
+    }
+    if (deletedAny) notifyChange();
   } finally {
     syncing = false;
   }
@@ -84,13 +118,18 @@ export async function syncPendingSessions({ force = false }: { force?: boolean }
 
 export async function getPendingCount(): Promise<number> {
   const all = await getAllLocalSessions();
-  return all.filter((s) => s.status === "pending").length;
+  return all.filter((s) => s.status === "pending" || s.status === "pending-delete").length;
 }
 
 export async function getSessionById(id: string): Promise<LocalSessionRecord | null> {
   if (id.startsWith("local:")) {
     return getLocalSessionByLocalId(id.slice("local:".length));
   }
+  // Una tumba local (borrada sin conexión) gana siempre: aunque el fetch
+  // remoto todavía la devuelva, para el usuario ya no existe.
+  const tombstone = await getLocalSessionByRemoteId(id);
+  if (tombstone?.status === "pending-delete") return null;
+
   const { data, error } = await supabase
     .from(SESSIONS_TABLE)
     .select("*")
@@ -103,13 +142,13 @@ export async function getSessionById(id: string): Promise<LocalSessionRecord | n
       remoteId: row.id,
       fecha: row.fecha,
       disparos: row.disparos,
+      moscas: row.moscas,
       created_at: row.created_at,
       status: "synced",
     };
   }
   // Sin conexión o falló el fetch: buscar en el caché local por remoteId.
-  const all = await getAllLocalSessions();
-  return all.find((s) => s.remoteId === id) ?? null;
+  return tombstone ?? getLocalSessionByRemoteId(id);
 }
 
 // Combina lo sincronizado en Supabase con lo pendiente/local, así ninguna
@@ -123,6 +162,11 @@ export async function getMergedSessions(): Promise<{
     local.filter((s) => s.remoteId).map((s) => [s.remoteId as string, s])
   );
   const pendingOnly = local.filter((s) => s.status === "pending");
+  // Tumbas: sesiones borradas sin conexión. Se excluyen de la vista aunque
+  // Supabase todavía las devuelva, hasta que el sync logre borrarlas ahí también.
+  const pendingDeleteRemoteIds = new Set(
+    local.filter((s) => s.status === "pending-delete" && s.remoteId).map((s) => s.remoteId as string)
+  );
 
   const { data, error } = await supabase
     .from(SESSIONS_TABLE)
@@ -131,19 +175,22 @@ export async function getMergedSessions(): Promise<{
     .order("created_at", { ascending: true });
 
   if (error || !data) {
-    return { sessions: [...local].sort(sortByFechaAsc), offline: true };
+    const visible = local.filter((s) => s.status !== "pending-delete");
+    return { sessions: [...visible].sort(sortByFechaAsc), offline: true };
   }
 
   const remoteRows = data as SessionRecord[];
   const merged: LocalSessionRecord[] = [];
 
   for (const row of remoteRows) {
+    if (pendingDeleteRemoteIds.has(row.id)) continue;
     const existing = localByRemoteId.get(row.id);
     const record: LocalSessionRecord = {
       localId: existing?.localId ?? `remote:${row.id}`,
       remoteId: row.id,
       fecha: row.fecha,
       disparos: row.disparos,
+      moscas: row.moscas,
       created_at: row.created_at,
       status: "synced",
     };
@@ -156,26 +203,38 @@ export async function getMergedSessions(): Promise<{
   return { sessions: merged, offline: false };
 }
 
-// Prioriza no perder datos: borra en Supabase lo sincronizado y en IndexedDB
-// lo pendiente. Si falla el borrado remoto no se toca el caché local.
-export async function deleteSessions(
+// Borra sesiones ya sincronizadas/pendientes. A diferencia de una sesión
+// "pending" (nunca llegó a Supabase, se borra directo), una sesión "synced"
+// intenta borrarse en Supabase de inmediato; si falla (sin conexión) queda
+// como "pending-delete": desaparece ya de la UI y el sync en background la
+// efectiviza en Supabase apenas vuelva la señal, sin que reaparezca.
+export async function deleteSessionsQueued(
   records: LocalSessionRecord[]
 ): Promise<{ error: boolean }> {
-  const synced = records.filter((r) => r.status === "synced" && r.remoteId);
-  const pendingOnly = records.filter((r) => !(r.status === "synced" && r.remoteId));
-
   let error = false;
-  if (synced.length > 0) {
-    const ids = synced.map((r) => r.remoteId as string);
-    const { error: supaError } = await supabase.from(SESSIONS_TABLE).delete().in("id", ids);
-    if (supaError) {
+  for (const r of records) {
+    try {
+      if (r.status === "synced" && r.remoteId) {
+        const { error: supaError } = await supabase
+          .from(SESSIONS_TABLE)
+          .delete()
+          .eq("id", r.remoteId);
+        if (supaError) {
+          // Sin conexión (u otro fallo transitorio): se marca "pending-delete"
+          // en vez de fallar. Desaparece ya de la UI y el sync la efectiviza
+          // en Supabase apenas vuelva la señal.
+          await putLocalSession({ ...r, status: "pending-delete" });
+        } else {
+          await deleteLocalSession(r.localId);
+        }
+      } else {
+        // "pending" (nunca sincronizada) o ya "pending-delete": no hay nada
+        // remoto pendiente de intentar ahora, se limpia directo del caché local.
+        await deleteLocalSession(r.localId);
+      }
+    } catch {
       error = true;
-    } else {
-      for (const r of synced) await deleteLocalSession(r.localId);
     }
-  }
-  for (const r of pendingOnly) {
-    await deleteLocalSession(r.localId);
   }
   notifyChange();
   return { error };
