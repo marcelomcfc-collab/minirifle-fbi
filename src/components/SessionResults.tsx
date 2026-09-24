@@ -36,15 +36,20 @@ export default function SessionResults({ fecha, disparos, moscas, actions, syncS
   const stats = calcSessionStats(disparos, moscas);
   const contentRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleExport = async () => {
     if (!contentRef.current) return;
     setExporting(true);
+    setExportError(null);
     try {
       await exportElementToPdf(
         contentRef.current,
         `minirifle-fbi_${fecha}_${stats.resultado}.pdf`
       );
+    } catch (e) {
+      console.error("Error exportando a PDF:", e);
+      setExportError("No se pudo generar el PDF. Probá de nuevo.");
     } finally {
       setExporting(false);
     }
@@ -58,12 +63,12 @@ export default function SessionResults({ fecha, disparos, moscas, actions, syncS
             {formatFecha(fecha)}
           </p>
           {syncStatus === "pending" && (
-            <p className="mt-2 inline-block rounded-full border border-accent/40 bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-accent">
+            <p className="mt-2 inline-block rounded-full border border-accent-border bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-accent">
               ⏳ Pendiente de sincronizar
             </p>
           )}
           {syncStatus === "synced" && (
-            <p className="mt-2 inline-block rounded-full border border-val-9/40 bg-val-9/10 px-2.5 py-1 text-[11px] font-medium text-val-9">
+            <p className="mt-2 inline-block rounded-full border border-val-9-border bg-val-9-soft px-2.5 py-1 text-[11px] font-medium text-val-9">
               ✓ Sincronizado
             </p>
           )}
@@ -146,10 +151,15 @@ export default function SessionResults({ fecha, disparos, moscas, actions, syncS
       <button
         onClick={handleExport}
         disabled={exporting}
-        className="rounded-xl border border-accent/50 bg-accent-soft py-3 text-sm font-semibold text-accent disabled:opacity-50"
+        className="rounded-xl border border-accent-border bg-accent-soft py-3 text-sm font-semibold text-accent disabled:opacity-50"
       >
         {exporting ? "Generando PDF…" : "Exportar a PDF"}
       </button>
+      {exportError && (
+        <p className="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-center text-xs text-val-0">
+          {exportError}
+        </p>
+      )}
 
       {actions}
     </div>

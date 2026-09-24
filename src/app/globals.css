@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Colores con alfa pre-mezclado en el propio hex (ver *-soft/*-border abajo):
+   html2canvas (usado para exportar a PDF) no soporta los color-mix()/oklab
+   que Tailwind genera para clases con modificador de opacidad tipo `/40`.
+   Cualquier color usado dentro de SessionResults (lo que se exporta a PDF)
+   debe evitar esos modificadores y usar un token de acá en su lugar. */
 :root {
   --background: #14171a;
   --surface: #1c2024;
@@ -9,6 +14,7 @@
   --border: #2c3136;
   --accent: #d4af6a;
   --accent-soft: #d4af6a33;
+  --accent-border: #d4af6a66;
   --danger: #c4362a;
 
   --val-10: #d4af6a;
@@ -16,6 +22,8 @@
   --val-8: #6e93ae;
   --val-7: #b0895a;
   --val-0: #c4362a;
+  --val-9-soft: #8fae6e1a;
+  --val-9-border: #8fae6e66;
 }
 
 @theme inline {
@@ -27,6 +35,7 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
   --color-danger: var(--danger);
 
   --color-val-10: var(--val-10);
@@ -34,6 +43,8 @@
   --color-val-8: var(--val-8);
   --color-val-7: var(--val-7);
   --color-val-0: var(--val-0);
+  --color-val-9-soft: var(--val-9-soft);
+  --color-val-9-border: var(--val-9-border);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
